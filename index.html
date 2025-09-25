@@ -857,6 +857,11 @@
                 months.add(monthKey);
             });
             
+            // 清空现有选项（保留"所有月份"）
+            while (filterSelect.options.length > 1) {
+                filterSelect.remove(1);
+            }
+            
             // 添加到过滤器
             Array.from(months).sort().reverse().forEach(month => {
                 const option = document.createElement('option');
@@ -1477,68 +1482,127 @@
             return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
         }
         
-        // 绑定事件处理程序
+        // 绑定事件处理程序（修复版）
         function bindEvents() {
+            // 修复标签页点击事件 - 添加事件捕获和阻止冒泡
+            document.querySelectorAll('.tab-btn, .mobile-tab-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const tabId = this.getAttribute('data-tab');
+                    switchTab(tabId);
+                }, { passive: false });
+            });
+
             // 计算时长按钮
-            document.getElementById('calculate-hours').addEventListener('click', calculateHours);
-            
+            document.getElementById('calculate-hours').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                calculateHours();
+            }, { passive: false });
+
             // 保存记录按钮
-            document.getElementById('save-record').addEventListener('click', saveNewRecord);
-            
+            document.getElementById('save-record').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                saveNewRecord();
+            }, { passive: false });
+
             // 关闭模态框按钮
-            document.getElementById('close-modal').addEventListener('click', closeEditModal);
-            document.getElementById('cancel-edit').addEventListener('click', closeEditModal);
+            document.getElementById('close-modal').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeEditModal();
+            }, { passive: false });
             
+            document.getElementById('cancel-edit').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeEditModal();
+            }, { passive: false });
+
             // 保存编辑按钮
-            document.getElementById('save-edit').addEventListener('click', saveEdit);
-            
+            document.getElementById('save-edit').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                saveEdit();
+            }, { passive: false });
+
             // 取消删除按钮
-            document.getElementById('cancel-delete').addEventListener('click', closeDeleteModal);
-            
+            document.getElementById('cancel-delete').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeDeleteModal();
+            }, { passive: false });
+
             // 确认删除按钮
-            document.getElementById('confirm-delete').addEventListener('click', confirmDelete);
-            
+            document.getElementById('confirm-delete').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                confirmDelete();
+            }, { passive: false });
+
             // 导出记录按钮
-            document.getElementById('export-records').addEventListener('click', exportRecords);
-            
+            document.getElementById('export-records').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                exportRecords();
+            }, { passive: false });
+
             // 导出所有数据按钮
-            document.getElementById('export-all-data').addEventListener('click', exportAllData);
-            
+            document.getElementById('export-all-data').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                exportAllData();
+            }, { passive: false });
+
             // 导入数据按钮
-            document.getElementById('import-data').addEventListener('click', importData);
-            
+            document.getElementById('import-data').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                importData();
+            }, { passive: false });
+
             // 处理文件导入
             document.getElementById('import-file').addEventListener('change', handleFileImport);
-            
+
             // 清除所有数据按钮
-            document.getElementById('clear-all-data').addEventListener('click', clearAllData);
-            
+            document.getElementById('clear-all-data').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                clearAllData();
+            }, { passive: false });
+
             // 过滤器变化事件
             document.getElementById('history-filter-month').addEventListener('change', filterRecords);
             document.getElementById('history-filter-type').addEventListener('change', filterRecords);
             document.getElementById('search-records').addEventListener('input', filterRecords);
-            
+
             // 分页按钮
-            document.getElementById('prev-page').addEventListener('click', function() {
+            document.getElementById('prev-page').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 if (currentPage > 1) {
                     currentPage--;
                     updateHistoryRecords();
                 }
-            });
-            
-            document.getElementById('next-page').addEventListener('click', function() {
+            }, { passive: false });
+
+            document.getElementById('next-page').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
                 if (currentPage < totalPages) {
                     currentPage++;
                     updateHistoryRecords();
                 }
-            });
-            
+            }, { passive: false });
+
             // 设置变化时保存设置
             document.querySelectorAll('input[name="calculation"], #exchange-ratio, #default-start-time').forEach(el => {
                 el.addEventListener('change', saveSettings);
             });
-            
+
             // 滚动时改变导航栏样式
             window.addEventListener('scroll', function() {
                 const navbar = document.getElementById('navbar');
@@ -1548,9 +1612,11 @@
                     navbar.classList.remove('shadow');
                 }
             });
-            
-            // 主题切换（简单实现）
-            document.getElementById('theme-toggle').addEventListener('click', function() {
+
+            // 主题切换
+            document.getElementById('theme-toggle').addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 const icon = this.querySelector('i');
                 if (icon.classList.contains('fa-moon-o')) {
                     icon.classList.remove('fa-moon-o');
@@ -1563,7 +1629,7 @@
                     document.body.classList.remove('dark-mode');
                     showToast('已切换到浅色模式', 'info');
                 }
-            });
+            }, { passive: false });
         }
     </script>
 </body>
