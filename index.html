@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加班记录助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    
+    <!-- 配置Tailwind主题 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6', // 蓝色作为主色调，传达专业和信任感
+                        secondary: '#10B981', // 绿色作为辅助色，用于积极状态
+                        warning: '#F59E0B', // 黄色作为警告色，用于超时提示
+                        danger: '#EF4444', // 红色作为危险色，用于异常情况
+                        dark: '#1F2937', // 深色用于文本
+                        light: '#F9FAFB', // 浅色用于背景
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .transition-custom {
+                transition: all 0.3s ease;
+            }
+            .btn-hover {
+                @apply hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200;
+            }
+            .input-focus {
+                @apply focus:ring-2 focus:ring-primary/50 focus:border-primary focus:outline-none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-dark min-h-screen font-sans">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white shadow-sm fixed top-0 left-0 right-0 z-50 transition-all duration-300" id="navbar">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-clock-o text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-dark">加班记录助手</h1>
+            </div>
+            <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 transition-custom">
+                <i class="fa fa-moon-o text-gray-600"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 pt-20 pb-24">
+        <!-- 标签页导航 -->
+        <div class="flex justify-around mb-6 bg-white rounded-xl p-1 shadow-sm">
+            <button class="tab-btn active flex-1 py-3 px-4 rounded-lg transition-custom" data-tab="record">
+                <i class="fa fa-pencil-square-o mr-2"></i>记录
+            </button>
+            <button class="tab-btn flex-1 py-3 px-4 rounded-lg transition-custom" data-tab="stats">
+                <i class="fa fa-bar-chart mr-2"></i>统计
+            </button>
+            <button class="tab-btn flex-1 py-3 px-4 rounded-lg transition-custom" data-tab="history">
+                <i class="fa fa-history mr-2"></i>历史
+            </button>
+            <button class="tab-btn flex-1 py-3 px-4 rounded-lg transition-custom" data-tab="settings">
+                <i class="fa fa-cog mr-2"></i>设置
+            </button>
+        </div>
+
+        <!-- 记录标签页 -->
+        <div class="tab-content active" id="record-tab">
+            <div class="bg-white rounded-2xl p-6 card-shadow mb-6">
+                <h2 class="text-xl font-bold mb-4 pb-2 border-b border-gray-100">添加加班记录</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                        <input type="date" id="overtime-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">加班类型</label>
+                        <select id="overtime-type" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                            <option value="weekday">工作日加班</option>
+                            <option value="weekend">周末加班</option>
+                            <option value="holiday">节假日加班</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">开始时间</label>
+                        <input type="time" id="start-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">结束时间</label>
+                        <input type="time" id="end-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">备注（可选）</label>
+                        <textarea id="overtime-note" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus" placeholder="请输入加班原因或其他备注信息..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-end">
+                    <button id="calculate-hours" class="mr-3 px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-custom">
+                        <i class="fa fa-calculator mr-1"></i>计算时长
+                    </button>
+                    <button id="save-record" class="px-6 py-2 bg-primary text-white rounded-lg btn-hover">
+                        <i class="fa fa-save mr-1"></i>保存记录
+                    </button>
+                </div>
+                
+                <div id="hours-result" class="mt-4 hidden">
+                    <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                        <p class="text-sm text-blue-800"><i class="fa fa-info-circle mr-1"></i> 计算结果：<span id="hours-value" class="font-semibold"></span> 小时</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 最近记录 -->
+            <div class="bg-white rounded-2xl p-6 card-shadow">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">最近记录</h2>
+                    <button class="text-primary text-sm hover:underline" onclick="switchTab('history')">
+                        查看全部 <i class="fa fa-angle-right ml-1"></i>
+                    </button>
+                </div>
+                
+                <div id="recent-records" class="space-y-3 max-h-64 overflow-y-auto pr-2">
+                    <!-- 最近记录会通过JavaScript动态生成 -->
+                    <div class="text-center text-gray-500 py-10">
+                        <i class="fa fa-calendar-o text-3xl mb-2 opacity-50"></i>
+                        <p>暂无加班记录</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计标签页 -->
+        <div class="tab-content hidden" id="stats-tab">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-2xl p-6 card-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">本月总时长</p>
+                            <h3 class="text-3xl font-bold mt-1" id="monthly-total">0 小时</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                            <i class="fa fa-clock-o text-primary text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-sm">
+                        <span class="text-green-500"><i class="fa fa-arrow-up"></i> 12% </span>
+                        <span class="text-gray-500">较上月</span>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl p-6 card-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">可兑换调休</p>
+                            <h3 class="text-3xl font-bold mt-1" id="exchange-days">0 天</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                            <i class="fa fa-calendar-check-o text-secondary text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-sm">
+                        <span class="text-gray-500">按每天8小时计算</span>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl p-6 card-shadow">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">本月记录次数</p>
+                            <h3 class="text-3xl font-bold mt-1" id="monthly-count">0 次</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                            <i class="fa fa-list-alt text-warning text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 text-sm">
+                        <span class="text-gray-500">平均每次: <span id="avg-per-time">0</span> 小时</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white rounded-2xl p-6 card-shadow lg:col-span-2">
+                    <h2 class="text-lg font-bold mb-4">加班时长趋势</h2>
+                    <div class="h-64">
+                        <canvas id="trend-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl p-6 card-shadow">
+                    <h2 class="text-lg font-bold mb-4">加班类型分布</h2>
+                    <div class="h-64 flex items-center justify-center">
+                        <canvas id="type-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-2xl p-6 card-shadow">
+                <h2 class="text-lg font-bold mb-4">月度统计</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">月份</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总时长(小时)</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">记录次数</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平均时长(小时)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthly-stats-table" class="divide-y divide-gray-200">
+                            <!-- 月度统计数据会通过JavaScript动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 历史标签页 -->
+        <div class="tab-content hidden" id="history-tab">
+            <div class="bg-white rounded-2xl p-6 card-shadow mb-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold mb-4 md:mb-0">加班记录历史</h2>
+                    
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="relative">
+                            <select id="history-filter-month" class="pl-4 pr-10 py-2 border border-gray-300 rounded-lg input-focus appearance-none w-full sm:w-auto">
+                                <option value="all">所有月份</option>
+                                <!-- 月份选项会通过JavaScript动态生成 -->
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <i class="fa fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="relative">
+                            <select id="history-filter-type" class="pl-4 pr-10 py-2 border border-gray-300 rounded-lg input-focus appearance-none w-full sm:w-auto">
+                                <option value="all">所有类型</option>
+                                <option value="weekday">工作日加班</option>
+                                <option value="weekend">周末加班</option>
+                                <option value="holiday">节假日加班</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <i class="fa fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                        
+                        <button id="export-records" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-custom w-full sm:w-auto">
+                            <i class="fa fa-download mr-1"></i>导出记录
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="relative">
+                    <input type="text" id="search-records" placeholder="搜索备注内容..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <i class="fa fa-search text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时长(小时)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-records" class="bg-white divide-y divide-gray-200">
+                            <!-- 历史记录会通过JavaScript动态生成 -->
+                            <tr>
+                                <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                                    <i class="fa fa-folder-open-o text-3xl mb-2 opacity-50"></i>
+                                    <p>暂无加班记录</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="pagination" class="px-6 py-4 border-t border-gray-200 flex justify-between items-center hidden">
+                    <p class="text-sm text-gray-500">显示 <span id="showing-range"></span> 条，共 <span id="total-records"></span> 条</p>
+                    <div class="flex space-x-2">
+                        <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa fa-angle-left"></i>
+                        </button>
+                        <button id="next-page" class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa fa-angle-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 设置标签页 -->
+        <div class="tab-content hidden" id="settings-tab">
+            <div class="bg-white rounded-2xl p-6 card-shadow mb-6">
+                <h2 class="text-xl font-bold mb-4 pb-2 border-b border-gray-100">基本设置</h2>
+                
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">工作时长计算方式</label>
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <input type="radio" id="calc-exact" name="calculation" value="exact" checked class="h-4 w-4 text-primary">
+                                <label for="calc-exact" class="ml-2 text-sm text-gray-700">精确计算（按实际分钟）</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="radio" id="calc-round" name="calculation" value="round" class="h-4 w-4 text-primary">
+                                <label for="calc-round" class="ml-2 text-sm text-gray-700">四舍五入（到半小时）</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="radio" id="calc-ceil" name="calculation" value="ceil" class="h-4 w-4 text-primary">
+                                <label for="calc-ceil" class="ml-2 text-sm text-gray-700">向上取整（到半小时）</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">调休兑换比例（小时/天）</label>
+                        <input type="number" id="exchange-ratio" min="1" max="24" step="0.5" value="8" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">默认加班开始时间</label>
+                        <input type="time" id="default-start-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-2xl p-6 card-shadow mb-6">
+                <h2 class="text-xl font-bold mb-4 pb-2 border-b border-gray-100">数据管理</h2>
+                
+                <div class="space-y-4">
+                    <button id="export-all-data" class="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-custom">
+                        <i class="fa fa-download text-gray-600 mr-3"></i>
+                        <span>导出所有数据</span>
+                        <span class="text-gray-500 text-sm ml-2">备份到本地</span>
+                    </button>
+                    
+                    <div class="border-t border-gray-100 pt-4">
+                        <button id="import-data" class="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-custom">
+                            <i class="fa fa-upload text-gray-600 mr-3"></i>
+                            <span>导入数据</span>
+                            <span class="text-gray-500 text-sm ml-2">从备份恢复</span>
+                        </button>
+                        <input type="file" id="import-file" accept=".json" class="hidden">
+                    </div>
+                    
+                    <div class="border-t border-gray-100 pt-4">
+                        <button id="clear-all-data" class="w-full text-left px-4 py-3 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-custom text-red-700">
+                            <i class="fa fa-trash text-red-600 mr-3"></i>
+                            <span>清除所有数据</span>
+                            <span class="text-red-500 text-sm ml-2">此操作不可恢复</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-2xl p-6 card-shadow">
+                <h2 class="text-xl font-bold mb-4 pb-2 border-b border-gray-100">关于</h2>
+                
+                <div class="text-center py-4">
+                    <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fa fa-clock-o text-primary text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-semibold">加班记录助手</h3>
+                    <p class="text-gray-500 text-sm mt-1">版本 1.0.0</p>
+                    
+                    <div class="mt-6 space-y-3">
+                        <p class="text-sm text-gray-600"><i class="fa fa-info-circle text-gray-400 mr-2"></i> 一款简单实用的加班记录工具</p>
+                        <p class="text-sm text-gray-600"><i class="fa fa-shield text-gray-400 mr-2"></i> 所有数据仅存储在本地设备</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 底部操作栏（移动端） -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40">
+        <div class="flex justify-around">
+            <button class="mobile-tab-btn active flex-1 py-3 flex flex-col items-center" data-tab="record">
+                <i class="fa fa-pencil-square-o text-lg"></i>
+                <span class="text-xs mt-1">记录</span>
+            </button>
+            <button class="mobile-tab-btn flex-1 py-3 flex flex-col items-center" data-tab="stats">
+                <i class="fa fa-bar-chart text-lg"></i>
+                <span class="text-xs mt-1">统计</span>
+            </button>
+            <button class="mobile-tab-btn flex-1 py-3 flex flex-col items-center" data-tab="history">
+                <i class="fa fa-history text-lg"></i>
+                <span class="text-xs mt-1">历史</span>
+            </button>
+            <button class="mobile-tab-btn flex-1 py-3 flex flex-col items-center" data-tab="settings">
+                <i class="fa fa-cog text-lg"></i>
+                <span class="text-xs mt-1">设置</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 编辑记录模态框 -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4 transform transition-all">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">编辑加班记录</h3>
+                <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <input type="hidden" id="edit-record-id">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">日期</label>
+                    <input type="date" id="edit-overtime-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">加班类型</label>
+                    <select id="edit-overtime-type" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                        <option value="weekday">工作日加班</option>
+                        <option value="weekend">周末加班</option>
+                        <option value="holiday">节假日加班</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">开始时间</label>
+                    <input type="time" id="edit-start-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">结束时间</label>
+                    <input type="time" id="edit-end-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                    <textarea id="edit-overtime-note" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg input-focus"></textarea>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancel-edit" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-custom">
+                    取消
+                </button>
+                <button id="save-edit" class="px-6 py-2 bg-primary text-white rounded-lg btn-hover">
+                    保存修改
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa fa-exclamation-triangle text-red-500 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-bold">确认删除</h3>
+                <p class="text-gray-500 mt-2">您确定要删除这条加班记录吗？此操作不可恢复。</p>
+            </div>
+            
+            <input type="hidden" id="delete-record-id">
+            
+            <div class="flex justify-center space-x-3">
+                <button id="cancel-delete" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-custom">
+                    取消
+                </button>
+                <button id="confirm-delete" class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-custom">
+                    确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知提示 -->
+    <div id="toast" class="fixed bottom-20 right-4 bg-dark text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center z-50">
+        <i id="toast-icon" class="fa fa-check-circle mr-2"></i>
+        <span id="toast-message"></span>
+    </div>
+
+    <script>
+        // 全局变量
+        let overtimeRecords = [];
+        let currentPage = 1;
+        const recordsPerPage = 10;
+        let filteredRecords = [];
+        
+        // DOM 加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从本地存储加载数据
+            loadRecords();
+            
+            // 初始化日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('overtime-date').value = today;
+            
+            // 设置默认开始时间为18:00（常见加班开始时间）
+            document.getElementById('default-start-time').value = '18:00';
+            document.getElementById('start-time').value = '18:00';
+            
+            // 初始化标签页切换
+            initTabs();
+            
+            // 初始化图表
+            initCharts();
+            
+            // 初始化月份过滤器
+            initMonthFilter();
+            
+            // 绑定事件处理程序
+            bindEvents();
+            
+            // 更新UI
+            updateUI();
+        });
+        
+        // 从本地存储加载记录
+        function loadRecords() {
+            const saved = localStorage.getItem('overtimeRecords');
+            if (saved) {
+                overtimeRecords = JSON.parse(saved);
+                // 按日期降序排序
+                overtimeRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+            }
+            
+            // 加载设置
+            const settings = localStorage.getItem('overtimeSettings');
+            if (settings) {
+                const { calculation, exchangeRatio, defaultStartTime } = JSON.parse(settings);
+                document.querySelector(`input[name="calculation"][value="${calculation}"]`).checked = true;
+                document.getElementById('exchange-ratio').value = exchangeRatio;
+                document.getElementById('default-start-time').value = defaultStartTime || '18:00';
+                document.getElementById('start-time').value = defaultStartTime || '18:00';
+            }
+        }
+        
+        // 保存记录到本地存储
+        function saveRecords() {
+            localStorage.setItem('overtimeRecords', JSON.stringify(overtimeRecords));
+        }
+        
+        // 保存设置
+        function saveSettings() {
+            const calculation = document.querySelector('input[name="calculation"]:checked').value;
+            const exchangeRatio = parseFloat(document.getElementById('exchange-ratio').value);
+            const defaultStartTime = document.getElementById('default-start-time').value;
+            
+            const settings = {
+                calculation,
+                exchangeRatio,
+                defaultStartTime
+            };
+            
+            localStorage.setItem('overtimeSettings', JSON.stringify(settings));
+        }
+        
+        // 初始化标签页切换
+        function initTabs() {
+            // 桌面端标签切换
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+            
+            // 移动端标签切换
+            document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+        }
+        
+        // 切换标签页
+        function switchTab(tabId) {
+            // 隐藏所有内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+                content.classList.remove('active');
+            });
+            
+            // 显示选中的内容
+            const activeContent = document.getElementById(`${tabId}-tab`);
+            activeContent.classList.remove('hidden');
+            activeContent.classList.add('active');
+            
+            // 更新桌面端标签按钮状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-primary/10', 'text-primary', 'font-medium');
+                if (btn.getAttribute('data-tab') === tabId) {
+                    btn.classList.add('active', 'bg-primary/10', 'text-primary', 'font-medium');
+                }
+            });
+            
+            // 更新移动端标签按钮状态
+            document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'text-primary');
+                if (btn.getAttribute('data-tab') === tabId) {
+                    btn.classList.add('active', 'text-primary');
+                }
+            });
+            
+            // 如果切换到统计标签，更新图表
+            if (tabId === 'stats') {
+                updateCharts();
+            }
+            
+            // 如果切换到历史标签，更新历史记录
+            if (tabId === 'history') {
+                filterRecords();
+            }
+        }
+        
+        // 初始化图表
+        function initCharts() {
+            // 趋势图
+            const trendCtx = document.getElementById('trend-chart').getContext('2d');
+            window.trendChart = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '加班时长（小时）',
+                        data: [],
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + 'h';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 类型分布图
+            const typeCtx = document.getElementById('type-chart').getContext('2d');
+            window.typeChart = new Chart(typeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['工作日加班', '周末加班', '节假日加班'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#3B82F6', '#10B981', '#F59E0B'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+        
+        // 更新图表数据
+        function updateCharts() {
+            // 计算月度统计数据
+            const monthlyData = calculateMonthlyStats();
+            
+            // 更新趋势图
+            const months = Object.keys(monthlyData).sort();
+            const hours = months.map(month => monthlyData[month].totalHours);
+            
+            window.trendChart.data.labels = months;
+            window.trendChart.data.datasets[0].data = hours;
+            window.trendChart.update();
+            
+            // 计算类型分布
+            const typeData = calculateTypeDistribution();
+            window.typeChart.data.datasets[0].data = [
+                typeData.weekday,
+                typeData.weekend,
+                typeData.holiday
+            ];
+            window.typeChart.update();
+            
+            // 更新本月统计卡片
+            updateMonthlyStatsCards();
+            
+            // 更新月度统计表格
+            updateMonthlyStatsTable(monthlyData);
+        }
+        
+        // 计算月度统计
+        function calculateMonthlyStats() {
+            const monthlyData = {};
+            
+            overtimeRecords.forEach(record => {
+                const date = new Date(record.date);
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1;
+                const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+                
+                if (!monthlyData[monthKey]) {
+                    monthlyData[monthKey] = {
+                        totalHours: 0,
+                        count: 0
+                    };
+                }
+                
+                monthlyData[monthKey].totalHours += parseFloat(record.hours);
+                monthlyData[monthKey].count += 1;
+            });
+            
+            return monthlyData;
+        }
+        
+        // 计算类型分布
+        function calculateTypeDistribution() {
+            const typeData = {
+                weekday: 0,
+                weekend: 0,
+                holiday: 0
+            };
+            
+            overtimeRecords.forEach(record => {
+                typeData[record.type] += parseFloat(record.hours);
+            });
+            
+            return typeData;
+        }
+        
+        // 更新月度统计卡片
+        function updateMonthlyStatsCards() {
+            const now = new Date();
+            const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+            const monthlyData = calculateMonthlyStats();
+            
+            // 本月总时长
+            const monthlyTotal = monthlyData[currentMonth] ? monthlyData[currentMonth].totalHours : 0;
+            document.getElementById('monthly-total').textContent = monthlyTotal.toFixed(1) + ' 小时';
+            
+            // 可兑换调休天数
+            const exchangeRatio = parseFloat(document.getElementById('exchange-ratio').value);
+            const exchangeDays = monthlyTotal / exchangeRatio;
+            document.getElementById('exchange-days').textContent = exchangeDays.toFixed(1) + ' 天';
+            
+            // 本月记录次数和平均时长
+            const monthlyCount = monthlyData[currentMonth] ? monthlyData[currentMonth].count : 0;
+            document.getElementById('monthly-count').textContent = monthlyCount + ' 次';
+            
+            const avgPerTime = monthlyCount > 0 ? (monthlyTotal / monthlyCount) : 0;
+            document.getElementById('avg-per-time').textContent = avgPerTime.toFixed(1);
+        }
+        
+        // 更新月度统计表格
+        function updateMonthlyStatsTable(monthlyData) {
+            const tableBody = document.getElementById('monthly-stats-table');
+            tableBody.innerHTML = '';
+            
+            // 按月份降序排序
+            const months = Object.keys(monthlyData).sort().reverse();
+            
+            months.forEach(month => {
+                const data = monthlyData[month];
+                const avgHours = data.count > 0 ? (data.totalHours / data.count).toFixed(1) : '0.0';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${formatMonth(month)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${data.totalHours.toFixed(1)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${data.count}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">${avgHours}</div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // 如果没有数据
+            if (months.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="4" class="px-6 py-10 text-center text-gray-500">
+                        <i class="fa fa-bar-chart text-3xl mb-2 opacity-50"></i>
+                        <p>暂无统计数据</p>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            }
+        }
+        
+        // 初始化月份过滤器
+        function initMonthFilter() {
+            const filterSelect = document.getElementById('history-filter-month');
+            
+            // 获取所有记录中的月份
+            const months = new Set();
+            overtimeRecords.forEach(record => {
+                const date = new Date(record.date);
+                const year = date.getFullYear();
+                const month = date.getMonth() + 1;
+                const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+                months.add(monthKey);
+            });
+            
+            // 添加到过滤器
+            Array.from(months).sort().reverse().forEach(month => {
+                const option = document.createElement('option');
+                option.value = month;
+                option.textContent = formatMonth(month);
+                filterSelect.appendChild(option);
+            });
+        }
+        
+        // 格式化月份显示
+        function formatMonth(monthKey) {
+            const [year, month] = monthKey.split('-');
+            return `${year}年${parseInt(month)}月`;
+        }
+        
+        // 过滤记录
+        function filterRecords() {
+            const monthFilter = document.getElementById('history-filter-month').value;
+            const typeFilter = document.getElementById('history-filter-type').value;
+            const searchTerm = document.getElementById('search-records').value.toLowerCase();
+            
+            filteredRecords = overtimeRecords.filter(record => {
+                // 月份过滤
+                if (monthFilter !== 'all') {
+                    const recordDate = new Date(record.date);
+                    const recordMonth = `${recordDate.getFullYear()}-${(recordDate.getMonth() + 1).toString().padStart(2, '0')}`;
+                    if (recordMonth !== monthFilter) {
+                        return false;
+                    }
+                }
+                
+                // 类型过滤
+                if (typeFilter !== 'all' && record.type !== typeFilter) {
+                    return false;
+                }
+                
+                // 搜索过滤
+                if (searchTerm && !record.note.toLowerCase().includes(searchTerm)) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            // 重置当前页
+            currentPage = 1;
+            
+            // 更新历史记录显示
+            updateHistoryRecords();
+        }
+        
+        // 更新历史记录显示
+        function updateHistoryRecords() {
+            const tableBody = document.getElementById('history-records');
+            const pagination = document.getElementById('pagination');
+            const showingRange = document.getElementById('showing-range');
+            const totalRecords = document.getElementById('total-records');
+            const prevPageBtn = document.getElementById('prev-page');
+            const nextPageBtn = document.getElementById('next-page');
+            
+            // 清空表格
+            tableBody.innerHTML = '';
+            
+            // 计算分页
+            const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
+            const startIndex = (currentPage - 1) * recordsPerPage;
+            const endIndex = Math.min(startIndex + recordsPerPage, filteredRecords.length);
+            const currentRecords = filteredRecords.slice(startIndex, endIndex);
+            
+            // 更新分页信息
+            if (filteredRecords.length === 0) {
+                pagination.classList.add('hidden');
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                        <i class="fa fa-folder-open-o text-3xl mb-2 opacity-50"></i>
+                        <p>暂无符合条件的记录</p>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+                return;
+            }
+            
+            pagination.classList.remove('hidden');
+            showingRange.textContent = `${startIndex + 1}-${endIndex}`;
+            totalRecords.textContent = filteredRecords.length;
+            
+            // 更新分页按钮状态
+            prevPageBtn.disabled = currentPage === 1;
+            nextPageBtn.disabled = currentPage === totalPages;
+            
+            // 添加记录行
+            currentRecords.forEach(record => {
+                const row = document.createElement('tr');
+                
+                // 格式化类型显示
+                let typeLabel, typeClass;
+                switch(record.type) {
+                    case 'weekday':
+                        typeLabel = '工作日加班';
+                        typeClass = 'bg-blue-100 text-blue-800';
+                        break;
+                    case 'weekend':
+                        typeLabel = '周末加班';
+                        typeClass = 'bg-green-100 text-green-800';
+                        break;
+                    case 'holiday':
+                        typeLabel = '节假日加班';
+                        typeClass = 'bg-yellow-100 text-yellow-800';
+                        break;
+                }
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">${formatDate(record.date)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${typeClass}">
+                            ${typeLabel}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${record.startTime} - ${record.endTime}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${parseFloat(record.hours).toFixed(1)}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                        ${record.note || '-'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="editRecord('${record.id}')" class="text-primary hover:text-primary/80 mr-3">
+                            编辑
+                        </button>
+                        <button onclick="deleteRecord('${record.id}')" class="text-red-500 hover:text-red-700">
+                            删除
+                        </button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        // 更新最近记录显示
+        function updateRecentRecords() {
+            const container = document.getElementById('recent-records');
+            container.innerHTML = '';
+            
+            // 获取最近5条记录
+            const recentRecords = overtimeRecords.slice(0, 5);
+            
+            if (recentRecords.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-10">
+                        <i class="fa fa-calendar-o text-3xl mb-2 opacity-50"></i>
+                        <p>暂无加班记录</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            recentRecords.forEach(record => {
+                // 格式化类型显示
+                let typeLabel, typeClass;
+                switch(record.type) {
+                    case 'weekday':
+                        typeLabel = '工作日';
+                        typeClass = 'bg-blue-100 text-blue-800';
+                        break;
+                    case 'weekend':
+                        typeLabel = '周末';
+                        typeClass = 'bg-green-100 text-green-800';
+                        break;
+                    case 'holiday':
+                        typeLabel = '节假日';
+                        typeClass = 'bg-yellow-100 text-yellow-800';
+                        break;
+                }
+                
+                const recordEl = document.createElement('div');
+                recordEl.className = 'p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-custom';
+                recordEl.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-medium">${formatDate(record.date)}</p>
+                            <p class="text-sm text-gray-500 mt-1">${record.startTime} - ${record.endTime}</p>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <span class="px-2 py-0.5 text-xs font-semibold rounded-full ${typeClass}">
+                                ${typeLabel}
+                            </span>
+                            <p class="text-sm font-medium text-primary mt-1">${parseFloat(record.hours).toFixed(1)} 小时</p>
+                        </div>
+                    </div>
+                    ${record.note ? `<p class="text-sm text-gray-600 mt-2 line-clamp-1">${record.note}</p>` : ''}
+                `;
+                
+                container.appendChild(recordEl);
+            });
+        }
+        
+        // 计算加班时长
+        function calculateHours() {
+            const startTime = document.getElementById('start-time').value;
+            const endTime = document.getElementById('end-time').value;
+            
+            if (!startTime || !endTime) {
+                showToast('请选择开始时间和结束时间', 'warning');
+                return null;
+            }
+            
+            // 解析时间
+            const [startHours, startMinutes] = startTime.split(':').map(Number);
+            const [endHours, endMinutes] = endTime.split(':').map(Number);
+            
+            // 计算分钟数
+            const startTotal = startHours * 60 + startMinutes;
+            let endTotal = endHours * 60 + endMinutes;
+            
+            // 如果结束时间早于开始时间，视为跨天
+            if (endTotal < startTotal) {
+                endTotal += 24 * 60; // 加一天的分钟数
+            }
+            
+            // 计算总分钟数
+            let totalMinutes = endTotal - startTotal;
+            
+            // 根据设置的计算方式处理
+            const calculation = document.querySelector('input[name="calculation"]:checked').value;
+            switch(calculation) {
+                case 'round':
+                    // 四舍五入到半小时
+                    totalMinutes = Math.round(totalMinutes / 30) * 30;
+                    break;
+                case 'ceil':
+                    // 向上取整到半小时
+                    totalMinutes = Math.ceil(totalMinutes / 30) * 30;
+                    break;
+                // 精确计算不需要处理
+            }
+            
+            // 转换为小时
+            const hours = totalMinutes / 60;
+            
+            // 显示结果
+            const resultEl = document.getElementById('hours-result');
+            const valueEl = document.getElementById('hours-value');
+            valueEl.textContent = hours.toFixed(1);
+            resultEl.classList.remove('hidden');
+            
+            return hours;
+        }
+        
+        // 保存新记录
+        function saveNewRecord() {
+            const date = document.getElementById('overtime-date').value;
+            const type = document.getElementById('overtime-type').value;
+            const startTime = document.getElementById('start-time').value;
+            const endTime = document.getElementById('end-time').value;
+            const note = document.getElementById('overtime-note').value;
+            
+            // 验证输入
+            if (!date || !startTime || !endTime) {
+                showToast('请填写完整的加班信息', 'warning');
+                return;
+            }
+            
+            // 计算时长
+            const hours = calculateHours();
+            if (hours === null || hours <= 0) {
+                showToast('请检查时间设置，加班时长必须大于0', 'warning');
+                return;
+            }
+            
+            // 创建新记录
+            const newRecord = {
+                id: generateId(),
+                date,
+                type,
+                startTime,
+                endTime,
+                hours: hours.toFixed(1),
+                note,
+                createdAt: new Date().toISOString()
+            };
+            
+            // 添加到记录列表并保存
+            overtimeRecords.unshift(newRecord); // 添加到开头
+            saveRecords();
+            
+            // 更新UI
+            updateUI();
+            
+            // 重置表单
+            document.getElementById('overtime-note').value = '';
+            document.getElementById('hours-result').classList.add('hidden');
+            
+            showToast('加班记录已保存', 'success');
+        }
+        
+        // 编辑记录
+        function editRecord(id) {
+            const record = overtimeRecords.find(r => r.id === id);
+            if (!record) return;
+            
+            // 填充表单
+            document.getElementById('edit-record-id').value = record.id;
+            document.getElementById('edit-overtime-date').value = record.date;
+            document.getElementById('edit-overtime-type').value = record.type;
+            document.getElementById('edit-start-time').value = record.startTime;
+            document.getElementById('edit-end-time').value = record.endTime;
+            document.getElementById('edit-overtime-note').value = record.note;
+            
+            // 显示模态框
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+        
+        // 保存编辑
+        function saveEdit() {
+            const id = document.getElementById('edit-record-id').value;
+            const date = document.getElementById('edit-overtime-date').value;
+            const type = document.getElementById('edit-overtime-type').value;
+            const startTime = document.getElementById('edit-start-time').value;
+            const endTime = document.getElementById('edit-end-time').value;
+            const note = document.getElementById('edit-overtime-note').value;
+            
+            // 验证输入
+            if (!date || !startTime || !endTime) {
+                showToast('请填写完整的加班信息', 'warning');
+                return;
+            }
+            
+            // 计算时长
+            const [startHours, startMinutes] = startTime.split(':').map(Number);
+            const [endHours, endMinutes] = endTime.split(':').map(Number);
+            
+            const startTotal = startHours * 60 + startMinutes;
+            let endTotal = endHours * 60 + endMinutes;
+            
+            if (endTotal < startTotal) {
+                endTotal += 24 * 60;
+            }
+            
+            let totalMinutes = endTotal - startTotal;
+            const calculation = document.querySelector('input[name="calculation"]:checked').value;
+            
+            switch(calculation) {
+                case 'round':
+                    totalMinutes = Math.round(totalMinutes / 30) * 30;
+                    break;
+                case 'ceil':
+                    totalMinutes = Math.ceil(totalMinutes / 30) * 30;
+                    break;
+            }
+            
+            const hours = totalMinutes / 60;
+            
+            if (hours <= 0) {
+                showToast('请检查时间设置，加班时长必须大于0', 'warning');
+                return;
+            }
+            
+            // 更新记录
+            const index = overtimeRecords.findIndex(r => r.id === id);
+            if (index !== -1) {
+                overtimeRecords[index] = {
+                    ...overtimeRecords[index],
+                    date,
+                    type,
+                    startTime,
+                    endTime,
+                    hours: hours.toFixed(1),
+                    note
+                };
+                
+                // 重新排序
+                overtimeRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                saveRecords();
+                updateUI();
+                closeEditModal();
+                showToast('加班记录已更新', 'success');
+            }
+        }
+        
+        // 删除记录
+        function deleteRecord(id) {
+            document.getElementById('delete-record-id').value = id;
+            document.getElementById('delete-modal').classList.remove('hidden');
+        }
+        
+        // 确认删除
+        function confirmDelete() {
+            const id = document.getElementById('delete-record-id').value;
+            const index = overtimeRecords.findIndex(r => r.id === id);
+            
+            if (index !== -1) {
+                overtimeRecords.splice(index, 1);
+                saveRecords();
+                updateUI();
+                closeDeleteModal();
+                showToast('加班记录已删除', 'success');
+            }
+        }
+        
+        // 关闭编辑模态框
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+        
+        // 关闭删除模态框
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+        }
+        
+        // 导出记录
+        function exportRecords() {
+            if (filteredRecords.length === 0) {
+                showToast('没有可导出的记录', 'warning');
+                return;
+            }
+            
+            // 格式化数据
+            const exportData = filteredRecords.map(record => {
+                let typeLabel;
+                switch(record.type) {
+                    case 'weekday': typeLabel = '工作日加班'; break;
+                    case 'weekend': typeLabel = '周末加班'; break;
+                    case 'holiday': typeLabel = '节假日加班'; break;
+                }
+                
+                return {
+                    日期: formatDate(record.date),
+                    类型: typeLabel,
+                    开始时间: record.startTime,
+                    结束时间: record.endTime,
+                    时长(小时): record.hours,
+                    备注: record.note || ''
+                };
+            });
+            
+            // 转换为CSV
+            const headers = Object.keys(exportData[0]).join(',');
+            const rows = exportData.map(obj => Object.values(obj).map(v => `"${v}"`).join(','));
+            const csv = [headers, ...rows].join('\n');
+            
+            // 创建下载链接
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            
+            // 设置文件名
+            const monthFilter = document.getElementById('history-filter-month').value;
+            const fileName = monthFilter === 'all' 
+                ? `加班记录_${new Date().toLocaleDateString()}.csv`
+                : `加班记录_${formatMonth(monthFilter)}_${new Date().toLocaleDateString()}.csv`;
+            
+            a.setAttribute('download', fileName);
+            a.style.visibility = 'hidden';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showToast('记录已导出为CSV文件', 'success');
+        }
+        
+        // 导出所有数据
+        function exportAllData() {
+            if (overtimeRecords.length === 0) {
+                showToast('没有可导出的数据', 'warning');
+                return;
+            }
+            
+            // 获取设置
+            const settings = localStorage.getItem('overtimeSettings');
+            
+            // 准备导出数据
+            const exportData = {
+                records: overtimeRecords,
+                settings: settings ? JSON.parse(settings) : {},
+                exportedAt: new Date().toISOString()
+            };
+            
+            // 创建下载链接
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `加班记录全量备份_${new Date().toLocaleDateString()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showToast('所有数据已导出为备份文件', 'success');
+        }
+        
+        // 导入数据
+        function importData() {
+            document.getElementById('import-file').click();
+        }
+        
+        // 处理文件导入
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // 验证文件类型
+            if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+                showToast('请导入JSON格式的备份文件', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // 验证备份数据格式
+                    if (!importedData.records || !Array.isArray(importedData.records)) {
+                        throw new Error('备份文件格式不正确');
+                    }
+                    
+                    // 合并数据
+                    overtimeRecords = importedData.records;
+                    saveRecords();
+                    
+                    // 导入设置
+                    if (importedData.settings) {
+                        localStorage.setItem('overtimeSettings', JSON.stringify(importedData.settings));
+                        loadRecords(); // 重新加载设置
+                    }
+                    
+                    // 更新UI
+                    updateUI();
+                    showToast('数据导入成功', 'success');
+                } catch (error) {
+                    showToast('导入失败：' + error.message, 'error');
+                    console.error('Import error:', error);
+                }
+            };
+            
+            reader.readAsText(file);
+            
+            // 重置文件输入，允许重复选择同一文件
+            event.target.value = '';
+        }
+        
+        // 清除所有数据
+        function clearAllData() {
+            if (confirm('确定要清除所有加班记录吗？此操作不可恢复！')) {
+                overtimeRecords = [];
+                saveRecords();
+                updateUI();
+                showToast('所有数据已清除', 'success');
+            }
+        }
+        
+        // 更新整个UI
+        function updateUI() {
+            updateRecentRecords();
+            updateCharts();
+            filterRecords();
+            initMonthFilter();
+        }
+        
+        // 显示提示消息
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const messageEl = document.getElementById('toast-message');
+            
+            // 设置图标和样式
+            icon.className = '';
+            toast.className = 'fixed bottom-20 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center z-50';
+            
+            switch(type) {
+                case 'success':
+                    icon.className = 'fa fa-check-circle text-green-500 mr-2';
+                    toast.classList.add('bg-green-50', 'text-green-800', 'border', 'border-green-200');
+                    break;
+                case 'warning':
+                    icon.className = 'fa fa-exclamation-triangle text-yellow-500 mr-2';
+                    toast.classList.add('bg-yellow-50', 'text-yellow-800', 'border', 'border-yellow-200');
+                    break;
+                case 'error':
+                    icon.className = 'fa fa-times-circle text-red-500 mr-2';
+                    toast.classList.add('bg-red-50', 'text-red-800', 'border', 'border-red-200');
+                    break;
+                default:
+                    icon.className = 'fa fa-info-circle text-blue-500 mr-2';
+                    toast.classList.add('bg-blue-50', 'text-blue-800', 'border', 'border-blue-200');
+            }
+            
+            // 设置消息
+            messageEl.textContent = message;
+            
+            // 显示提示
+            setTimeout(() => {
+                toast.classList.remove('translate-y-20', 'opacity-0');
+            }, 10);
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+        
+        // 生成唯一ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+        
+        // 格式化日期显示
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+        }
+        
+        // 绑定事件处理程序
+        function bindEvents() {
+            // 计算时长按钮
+            document.getElementById('calculate-hours').addEventListener('click', calculateHours);
+            
+            // 保存记录按钮
+            document.getElementById('save-record').addEventListener('click', saveNewRecord);
+            
+            // 关闭模态框按钮
+            document.getElementById('close-modal').addEventListener('click', closeEditModal);
+            document.getElementById('cancel-edit').addEventListener('click', closeEditModal);
+            
+            // 保存编辑按钮
+            document.getElementById('save-edit').addEventListener('click', saveEdit);
+            
+            // 取消删除按钮
+            document.getElementById('cancel-delete').addEventListener('click', closeDeleteModal);
+            
+            // 确认删除按钮
+            document.getElementById('confirm-delete').addEventListener('click', confirmDelete);
+            
+            // 导出记录按钮
+            document.getElementById('export-records').addEventListener('click', exportRecords);
+            
+            // 导出所有数据按钮
+            document.getElementById('export-all-data').addEventListener('click', exportAllData);
+            
+            // 导入数据按钮
+            document.getElementById('import-data').addEventListener('click', importData);
+            
+            // 处理文件导入
+            document.getElementById('import-file').addEventListener('change', handleFileImport);
+            
+            // 清除所有数据按钮
+            document.getElementById('clear-all-data').addEventListener('click', clearAllData);
+            
+            // 过滤器变化事件
+            document.getElementById('history-filter-month').addEventListener('change', filterRecords);
+            document.getElementById('history-filter-type').addEventListener('change', filterRecords);
+            document.getElementById('search-records').addEventListener('input', filterRecords);
+            
+            // 分页按钮
+            document.getElementById('prev-page').addEventListener('click', function() {
+                if (currentPage > 1) {
+                    currentPage--;
+                    updateHistoryRecords();
+                }
+            });
+            
+            document.getElementById('next-page').addEventListener('click', function() {
+                const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    updateHistoryRecords();
+                }
+            });
+            
+            // 设置变化时保存设置
+            document.querySelectorAll('input[name="calculation"], #exchange-ratio, #default-start-time').forEach(el => {
+                el.addEventListener('change', saveSettings);
+            });
+            
+            // 滚动时改变导航栏样式
+            window.addEventListener('scroll', function() {
+                const navbar = document.getElementById('navbar');
+                if (window.scrollY > 10) {
+                    navbar.classList.add('shadow');
+                } else {
+                    navbar.classList.remove('shadow');
+                }
+            });
+            
+            // 主题切换（简单实现）
+            document.getElementById('theme-toggle').addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                if (icon.classList.contains('fa-moon-o')) {
+                    icon.classList.remove('fa-moon-o');
+                    icon.classList.add('fa-sun-o');
+                    document.body.classList.add('dark-mode');
+                    showToast('已切换到深色模式', 'info');
+                } else {
+                    icon.classList.remove('fa-sun-o');
+                    icon.classList.add('fa-moon-o');
+                    document.body.classList.remove('dark-mode');
+                    showToast('已切换到浅色模式', 'info');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
